@@ -686,29 +686,86 @@ def chat(
     chat_message: ChatMessage,
     current_user: dict = Depends(rate_limit_dependency)
 ):
-    """Send a message to Claude (disabled in public demo)"""
+    """Send a message to Claude with knowledge base tools"""
     
-    # Disable AI in public demo to prevent abuse
+    # Check if AI chat is enabled (controlled via ENABLE_AI_CHAT env var)
     if os.getenv("ENABLE_AI_CHAT", "false").lower() != "true":
         return {
-            "response": "🔒 AI chat is disabled in the public demo to prevent abuse and manage costs. "
-                       "This feature is fully functional - see the GitHub code and demo video! "
-                       "Recruiters: Contact me for a private demo with AI enabled."
+            "response": "AI chat is currently disabled. Please contact the administrator."
         }
-
-    # Check daily AI limit
-    check_daily_ai_limit(current_user['user_id'], limit=20)
+    
+    # Apply strict rate limiting for AI chat (expensive operation)
+    # Daily limit: 7 requests per day
+    check_daily_ai_limit(current_user['user_id'], limit=7)
+    
+    # Hourly limit: 10 requests per hour (prevents rapid-fire abuse)
+    from rate_limiter import chat_rate_limiter
+    client_ip = request.client.host
+    chat_limit_key = f"chat:user:{current_user['user_id']}"
+    
+    chat_result = chat_rate_limiter.check_rate_limit(chat_limit_key)
+    if not chat_result["allowed"]:
+        minutes_remaining = (chat_result["reset_time"] - int(time.time())) // 60
+        
+        # Log rate limit violation
+        audit_logger.log_rate_limit(
+            event_type=audit_logger.RATE_LIMIT_EXCEEDED,
+            ip_address=client_ip,
+            user_id=current_user['user_id'],
+            details={"endpoint": "/api/chat", "limit_type": "hourly"}
+        )
+        
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail=f"AI chat rate limit exceeded (10 per hour). Try again in {minutes_remaining} minutes.",
+            headers={
+                "X-RateLimit-Limit": str(chat_result["limit"]),
+                "X-RateLimit-Remaining": "0",
+                "X-RateLimit-Reset": str(chat_result["reset_time"]),
+                "Retry-After": str(chat_result["reset_time"] - int(time.time()))
+            }
+        )
 
     try:
+        # Log AI chat request
+        audit_logger.log(
+            event_type=audit_logger.AI_CHAT_REQUEST,
+            event_category=audit_logger.CATEGORY_API,
+            severity=audit_logger.SEVERITY_INFO,
+            status=audit_logger.STATUS_SUCCESS,
+            user_id=current_user['user_id'],
+            ip_address=client_ip,
+            details={
+                "message_length": len(chat_message.message),
+                "requests_remaining_daily": 7 - int(redis_client.get(f"ai_limit:user:{current_user['user_id']}:daily") or 0),
+                "requests_remaining_hourly": chat_result["remaining"]
+            },
+            user_agent=request.headers.get("user-agent")
+        )
+        
         response = chat_with_knowledge_base(
             message=chat_message.message,
             user_id=current_user['user_id']
         )
         return {"response": response}
+        
+    except HTTPException:
+        raise
     except Exception as e:
+        # Log AI error
+        audit_logger.log(
+            event_type="ai_chat_error",
+            event_category=audit_logger.CATEGORY_SYSTEM,
+            severity=audit_logger.SEVERITY_ERROR,
+            status=audit_logger.STATUS_FAILURE,
+            user_id=current_user['user_id'],
+            ip_address=client_ip,
+            details={"error": "ai_service_error"}
+        )
+        
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=str(e)
+            detail="AI service temporarily unavailable"
         )
 
 @app.get("/api/rate-limit/status")
@@ -728,22 +785,39 @@ def ai_limit_status(current_user: dict = Depends(get_current_user)):
     """Get current AI request limit status for user"""
     from cache_service import redis_client
     
-    key = f"ai_limit:user:{current_user['user_id']}:daily"
-    current_count = redis_client.get(key)
-    ttl = redis_client.ttl(key)
+    # Daily limit
+    daily_key = f"ai_limit:user:{current_user['user_id']}:daily"
+    daily_count = redis_client.get(daily_key)
+    daily_ttl = redis_client.ttl(daily_key)
+    daily_count = int(daily_count) if daily_count else 0
+    daily_limit = 7
+    daily_remaining = max(0, daily_limit - daily_count)
     
-    current_count = int(current_count) if current_count else 0
-    limit = 20
-    remaining = max(0, limit - current_count)
-    reset_time = int(time.time()) + ttl if ttl > 0 else int(time.time()) + 86400
+    # Hourly limit
+    hourly_key = f"rate_limit:user:chat:user:{current_user['user_id']}"
+    hourly_count = redis_client.get(hourly_key)
+    hourly_ttl = redis_client.ttl(hourly_key)
+    hourly_count = int(hourly_count) if hourly_count else 0
+    hourly_limit = 10
+    hourly_remaining = max(0, hourly_limit - hourly_count)
     
     return {
         "user_id": current_user['user_id'],
-        "ai_requests_used": current_count,
-        "ai_requests_remaining": remaining,
-        "ai_requests_limit": limit,
-        "reset_time": reset_time,
-        "reset_in_seconds": ttl if ttl > 0 else 86400
+        "daily": {
+            "used": daily_count,
+            "remaining": daily_remaining,
+            "limit": daily_limit,
+            "resets_in_seconds": daily_ttl if daily_ttl > 0 else 86400,
+            "resets_in_hours": (daily_ttl // 3600) if daily_ttl > 0 else 24
+        },
+        "hourly": {
+            "used": hourly_count,
+            "remaining": hourly_remaining,
+            "limit": hourly_limit,
+            "resets_in_seconds": hourly_ttl if hourly_ttl > 0 else 3600,
+            "resets_in_minutes": (hourly_ttl // 60) if hourly_ttl > 0 else 60
+        },
+        "can_chat": daily_remaining > 0 and hourly_remaining > 0
     }
 
 @app.get("/api/admin/usage")
