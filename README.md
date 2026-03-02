@@ -2,7 +2,7 @@
 
 A full-stack application that helps developers organize and query their technical knowledge using AI. Built with custom MCP server integration, Redis caching, and background job processing.
 
-![Screenshot](./screenshots/ui-Screenshot-mar-26.png)
+![Screenshot](./docs/screenshots/ui-Screenshot-mar-26.png)
 
 ## Key Features
 
@@ -14,7 +14,7 @@ A full-stack application that helps developers organize and query their technica
 
 ## Demo
 
-- **[Live Demo](your-deployed-url)** - Try it out (rate-limited for security)
+- **[Live Demo](https://p-11-one.vercel.app/)** - Try it out (rate-limited for security)
 - **[Video Walkthrough](youtube-link)** - 2-minute feature overview
 
 ## Tech Stack
