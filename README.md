@@ -20,26 +20,30 @@ A full-stack application that helps developers organize and query their technica
 ## Tech Stack
 
 **Frontend:**
-- Next.js 14
+- Next.js 14 (App Router)
 - TypeScript
-- React
-- [Any UI library you're using - Tailwind? shadcn?]
+- Tailwind CSS
+- React Context (auth state management)
+
 
 **Backend:**
-- FastAPI (Python)
+- Python 3.10+
+- FastAPI
+- SQLAlchemy
 - PostgreSQL
-- Redis
-- [Other backend tools]
+- JWT Authentication
+
 
 **AI/Integration:**
-- Claude API
-- Custom MCP Protocol implementation
+- Anthropic Claude API
+- Custom MCP Server (FastMCP) implementation
+- Agentic tool loop
 
 ## Architecture
 
 - User submits query through Next.js frontend
-- Request hits FastAPI backend
-- Redis cache checked for existing results
+- Request reaches FastAPI backend
+- Redis cache checks for existing results
 - If cache miss, MCP server processes query with Claude API
 - Background jobs handle indexing and data updates
 - Results returned and cached for future queries
@@ -53,43 +57,78 @@ A full-stack application that helps developers organize and query their technica
 - Redis
 
 ### Setup
-
-1. Clone the repository
-\`\`\`bash
+Clone the repository
+```bash
 git clone https://github.com/pamelagilmour/dev-notes-ai.git
 cd dev-notes-ai
-\`\`\`
+```
 
-2. [Rest of your current setup instructions]
+### Frontend Setup
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+### Backend Setup
+```bash
+cd backend
+python3 -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
+uvicorn main:app --reload
+```
+
+### MCP Server Setup
+```bash
+cd mcp-server
+python3 -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
+python knowledge_base_server.py
+```
+
+### Environment Variables
+
+**backend/.env**
+```
+DATABASE_URL=postgresql://localhost:5432/knowledge_base
+SECRET_KEY=your-secret-key-here
+ANTHROPIC_API_KEY=sk-ant-your-key-here
+```
+
+## 🧪 Testing
+```bash
+# Backend tests (coming soon)
+pytest
+
+# Test MCP server
+mcp dev mcp-server/knowledge_base_server.py
+
+# API docs (auto-generated)
+http://localhost:8000/docs
+```
+
+## 📈 System Design Highlights
+
+**Current:**
+- RESTful API with proper status codes and error handling
+- JWT authentication with 24hr token expiration
+- Password hashing with bcrypt
+- Database indexes for query performance
+- Input validation with Pydantic models
+- CORS configuration
+- Agentic AI loop with tool orchestration
+- Redis caching (target: 80%+ cache hit rate)
+- Rate limiting
 
 ## Security Features
 
 - Rate limiting on AI queries
 - API key management
-- [Whatever app sec you implement]
 
-## Roadmap
-
-- [ ] Additional MCP tool integrations
-- [ ] Export/import knowledge base
-- [ ] Team collaboration features
-
-## License
-
-MIT
 
 ---
 
 Built by [Pam Gilmour](https://my-next-app.sodalitemix.workers.dev/) | [LinkedIn](https://www.linkedin.com/in/pamela-gilmour/) | [GitHub](https://github.com/pamelagilmour)
-```
 
-## Don't Forget to Update Your Portfolio
-
-Once this is all done, update your portfolio project section to:
-```
-Dev Notes AI
-A full-stack knowledge management system with AI-powered search, custom MCP server integration, and production-grade caching and background job processing.
-
-Tech: Next.js, TypeScript, FastAPI, PostgreSQL, Redis, Claude API
-
-[View Demo] [View Code] [Watch Video]
