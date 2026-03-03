@@ -15,7 +15,7 @@ A full-stack application that helps developers organize and query their technica
 ## Demo
 
 - **[Live Demo](https://p-11-one.vercel.app/)** - Try it out (rate-limited for security)
-- **[Video Walkthrough](youtube-link)** - 2-minute feature overview
+- **[Video Walkthrough](https://youtu.be/GdRVBWv2w8k)** - 5-minute feature overview
 
 ## Tech Stack
 
