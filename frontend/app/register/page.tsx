@@ -36,6 +36,24 @@ export default function RegisterPage() {
       setError('Password must be at least 8 characters');
       return;
     }
+    
+    // Client-side password validation to match backend requirements
+    if (!/[A-Z]/.test(password)) {
+      setError('Password must contain at least one uppercase letter');
+      return;
+    }
+    if (!/[a-z]/.test(password)) {
+      setError('Password must contain at least one lowercase letter');
+      return;
+    }
+    if (!/\d/.test(password)) {
+      setError('Password must contain at least one number');
+      return;
+    }
+    if (!/[!@#$%^&*(),.?":{}|<>]/.test(password)) {
+      setError('Password must contain at least one special character (!@#$%^&*...)');
+      return;
+    }
 
     setLoading(true);
 
@@ -97,7 +115,9 @@ export default function RegisterPage() {
                 className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-gray-950"
                 placeholder="••••••••"
               />
-              <p className="mt-1 text-sm text-gray-500">At least 8 characters</p>
+              <p className="mt-1 text-xs text-gray-500">
+                Must be at least 8 characters and include uppercase, lowercase, number, and special character
+              </p>
             </div>
 
             <div>

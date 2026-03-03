@@ -60,12 +60,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const response = await fetch(`${API_URL}/api/auth/register`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, password })
+      body: JSON.stringify({ email, password, website: '' })
     });
 
     if (!response.ok) {
       const error = await response.json();
-      throw new Error(error.detail || 'Registration failed');
+      
+      // Handle Pydantic validation errors
+      if (error.detail && Array.isArray(error.detail)) {
+        // Extract validation error messages
+        const messages = error.detail.map((err: any) => {
+          if (err.msg) return err.msg;
+          if (err.message) return err.message;
+          return JSON.stringify(err);
+        }).join(', ');
+        throw new Error(messages);
+      }
+      
+      // Handle simple error messages
+      if (typeof error.detail === 'string') {
+        throw new Error(error.detail);
+      }
+      
+      throw new Error('Registration failed');
     }
 
     // After successful registration, log them in
@@ -81,7 +98,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     if (!response.ok) {
       const error = await response.json();
-      throw new Error(error.detail || 'Login failed');
+      
+      // Handle Pydantic validation errors
+      if (error.detail && Array.isArray(error.detail)) {
+        const messages = error.detail.map((err: any) => {
+          if (err.msg) return err.msg;
+          if (err.message) return err.message;
+          return JSON.stringify(err);
+        }).join(', ');
+        throw new Error(messages);
+      }
+      
+      // Handle simple error messages
+      if (typeof error.detail === 'string') {
+        throw new Error(error.detail);
+      }
+      
+      throw new Error('Login failed');
     }
 
     const data = await response.json();
